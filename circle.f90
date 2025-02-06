@@ -1,4 +1,4 @@
-program circle_info
+program circle
     implicit none
 
     integer, parameter :: dp = selected_real_kind(15)
@@ -21,16 +21,16 @@ program circle_info
 
     ! compute circle info and write to file
     do i = 1, n
-        call area_of_circle(radius(i), perimeter, area)
+        call circle_info(radius(i), perimeter, area)
         write(io, "(I2, A, F16.8, A, F16.8, A, F16.8)") &
             i, ": radius = ", radius(i), ", area = ", area, ", perimeter = ", perimeter
     end do
 
     close(io)
 
-end program circle_info
+end program circle
 
-subroutine area_of_circle(radius, perimeter, area)
+subroutine circle_info(radius, perimeter, area)
     implicit none
 
     integer, parameter :: dp = selected_real_kind(15)
@@ -42,4 +42,4 @@ subroutine area_of_circle(radius, perimeter, area)
     perimeter = 2.0_dp * pi * radius
     area = pi * radius**2
 
-end subroutine area_of_circle
+end subroutine circle_info
