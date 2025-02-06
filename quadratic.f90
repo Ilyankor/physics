@@ -1,33 +1,42 @@
 program quadratic
+    ! Calculate the roots of a quadratic function defined by user input
+    ! ax^2 + bx + c
+
     use, intrinsic :: iso_fortran_env, only : dp => real64
 
     implicit none
 
-    real(dp) :: a, b, c
-    real(dp) :: x1, x2
-    real(dp) :: D
+    real(dp) :: a, b, c     ! coefficients
+    real(dp) :: x1, x2      ! roots
+    real(dp) :: D           ! discriminant
 
-    real(dp), external :: discriminant
+    real(dp), external :: discriminant  ! discriminant function
 
-    print *, "Enter a, b, c"
+    ! get user input
+    write(*, "(A)", advance="no") "Enter a, b, c: "
     read *, a, b, c
 
-    if( a .eq. 0.0_dp) stop "Fuck you"
-
+    ! degenerate quadratic
+    if (a .eq. 0.0_dp) then
+        stop "Not a quadratic equation."
+    end if
+    
+    ! compute the discriminant
     D = discriminant(a, b, c)
-    print *, "Discriminant: D = ", D
+    print "(A, A, F16.8)", "The discriminant:", " D = ", D
 
-    if (D .gt. 0.0) then
+    ! compute the roots
+    if (D .gt. 0.0_dp) then
         call roots(a, b, c, x1, x2)
-        print *, "Roots are ", x1, x2
+        print "(A, A, F16.8, A, F16.8)", "The roots are:", " x1 = ", x1, " x2 = ", x2
+
     else if (D .eq. 0.0_dp) then
         call roots(a, b, c, x1, x2)
-        print *, x1
+        print "(A, A, F16.8)", "There is a double root:", " x1 = ", x1
 
     else
-        print*, "No real roots"
+        print "(A)", "No real roots."
     end if
-
 
 end program quadratic
 
@@ -58,7 +67,7 @@ subroutine roots(a, b, c, x1, x2)
     real(dp), intent(out) :: x1, x2     ! roots
     real(dp) :: D                       ! discriminant
 
-    real(dp), external :: discriminant            ! discriminant function
+    real(dp), external :: discriminant  ! discriminant function
 
     ! degenerate quadratic
     if (a .eq. 0.0_dp) then
@@ -68,7 +77,8 @@ subroutine roots(a, b, c, x1, x2)
     
     D = discriminant(a, b, c)
 
-    if (D < 0.0_dp) then
+    ! complex roots
+    if (D .lt. 0.0_dp) then
         print "(A, F16.8)", "No real roots since D = ", D
         return
     end if
