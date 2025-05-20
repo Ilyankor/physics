@@ -1,0 +1,13 @@
+GENERIC COMMANDS
+g++ NAME.cpp -o NAME.out -std=c++20 -I ../lib -Wall -Werror -W
+
+n = 6
+plot for [i=2:n] 'output.txt' using 1:i with lines title sprintf("x%d", i-1)
+
+
+CHAPTER 3: COUPLED OSCILLATORS
+cd ch03/oscillation
+g++ oscillation.cpp -o main.out -std=c++20 -I ../../lib
+./main.out test/input.txt test/output.txt
+cd test
+gnuplot animate.gp | ffmpeg -framerate 60 -f png_pipe -i pipe: -s:v 3840x2160 -c:v libx264 -pix_fmt yuv420p animation.mp4
