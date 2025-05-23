@@ -18,51 +18,39 @@
 #include <fstream>
 #include <iostream>
 #include <tuple>
+
 #include <Eigen/Dense>
 
+#include "util/util.h"
+
+using Array = Eigen::ArrayXd;
 using Vector = Eigen::VectorXd;
-using CVector = Eigen::VectorXcd;
 using Matrix = Eigen::MatrixXd;
+using CArray = Eigen::ArrayXcd;
 
 constexpr std::complex<double> I(0.0, 1.0);
+constexpr double sqrtzerotol{ 1e-7 };
 
-Vector strToVec(std::string& str, int n)
-{
-    Vector vec(n);
-    std::stringstream ss{ str };
-
-    double val {};
-    char comma {};
-
-    for (int i{ 0 }; i < n; ++i)
-    {
-        ss >> val >> comma;
-        vec[i] = val;
-    }
-
-    return vec;
-}
-
-std::tuple<int, Vector, Vector, Vector, Vector, double, double, int> readFile
-    (char* file_name)
+std::tuple<int, Array, Vector, Vector, Array, double, double, int> readFile(
+    std::string_view file_name)
 {
     std::ifstream input{ file_name };
-    std::string line {};
+    std::string line{};
 
     std::getline(input, line);
     int n{ std::stoi(line) };
     
     std::getline(input, line);
-    Vector m{ strToVec(line, n) };
+    Array m{ strToArr(line, n) };
 
     std::getline(input, line);
-    Vector x0{ strToVec(line, n) };
+    Vector x0{ strToArr(line, n) };
 
     std::getline(input, line);
-    Vector v0{ strToVec(line, n) };
+    Vector v0{ strToArr(line, n) };
 
     std::getline(input, line);
-    Vector k{ strToVec(line, n-1) };
+    Array k{ strToArr(line, n-1) };
     
     std::getline(input, line);
     double t0{ std::stod(line) };
@@ -72,10 +60,11 @@ std::tuple<int, Vector, Vector, Vector, Vector, double, double, int> readFile
 
     std::getline(input, line);
     int N{ std::stoi(line) };
+    
     return {n, m, x0, v0, k, t0, tN, N};
 }
 
-void writeFile(char* file_name, Vector& t, Matrix& x)
+void writeFile(std::string_view file_name, const Vector& t, const Matrix& x)
 {
     Matrix merged(x.rows(), x.cols() + 1);
     merged << t, x;
@@ -85,8 +74,8 @@ void writeFile(char* file_name, Vector& t, Matrix& x)
     output << merged.format(fmt);
 }
 
-std::tuple<Matrix, CVector, Vector> coupledOscillators
-    (int n, Vector& m, Vector& x0, Vector& v0, Vector& k)
+std::tuple<Matrix, CArray, Array> coupledOscillators(
+    int n, const Array& m, const Vector& x0, const Vector& v0, const Array& k)
 {
     // construct K
     Matrix K(n, n);
@@ -105,55 +94,54 @@ std::tuple<Matrix, CVector, Vector> coupledOscillators
         }
     }
     else
-    {
         K << k(0), -k(0), -k(0), k(0);
-    }
 
     // construct M^(-1/2)
-    Vector m12{ m.cwiseSqrt() };
+    Vector m12{ m.sqrt() };
     Vector m12inv{ m12.cwiseInverse() };
     Eigen::DiagonalMatrix<double, Eigen::Dynamic> M12inv{ m12inv };
 
     // solve eigenvalue problem
     Matrix A{ M12inv * K * M12inv };
     Eigen::SelfAdjointEigenSolver<Matrix> eigsol(A);
-    Vector eigvals{ eigsol.eigenvalues().cwiseSqrt() };
+    Array eigvals{ eigsol.eigenvalues().cwiseSqrt() };
     Matrix eigvecs{ eigsol.eigenvectors() };
 
     // compute coefficients
     Matrix coef_vect(n, n);
-    CVector coef_scal(n);
+    CArray coef_scal(n);
     for (int i{ 0 }; i < n; ++i)
     {
         coef_vect.col(i) = eigvecs.col(i).cwiseProduct(m12inv);
 
-        // check zero eigenvalue
-        if (std::abs(eigvals[i]) < 1e-7 || std::isnan(eigvals[i]))
+        // bT*M
+        Eigen::RowVectorXd btm{ eigvecs.col(i).cwiseProduct(m12).transpose() };
+
+        // check for zero eigenvalues
+        if (std::abs(eigvals(i)) < sqrtzerotol || std::isnan(eigvals(i)))
         {
-            coef_scal[i] = eigvecs.col(i).cwiseProduct(m12).transpose() * x0;
-            eigvals[i] = 0.0;
+            coef_scal(i) = btm * x0;
+            eigvals(i) = 0.0;
         }
         else
-        {
-            coef_scal[i] = (eigvecs.col(i).cwiseProduct(m12).transpose() 
-                * (x0 + I / eigvals[i] * v0)).value();
-        }
+            coef_scal(i) = (btm * (x0 + I / eigvals[i] * v0))(0);
     }
 
     return {coef_vect, coef_scal, eigvals};
 }
 
-std::tuple<Vector, Matrix> constructSolution
-    (Matrix& a, CVector& c, Vector& w, double t0, double tN, int N)
+std::tuple<Vector, Matrix> constructSolution(
+    const Matrix& a, const CArray& c, const Array& w,
+    double t0, double tN, int N)
 {
     // time grid
     Vector t{ Vector::LinSpaced(N+1, t0, tN) };
 
     // solution
-    Matrix x(N+1, c.rows());
+    Matrix x(N+1, c.size());
     for (int i{ 0 }; i < N+1; ++i)
     {
-        CVector ceiwt{ c.array() * (-1.0 * I * t[i] * w.array()).exp() };
+        Eigen::VectorXcd ceiwt{ c * (-1.0 * I * t[i] * w).exp() };
         x.row(i) = (a * ceiwt).real();
     }
 
@@ -162,16 +150,35 @@ std::tuple<Vector, Matrix> constructSolution
 
 int main(int argc, char* argv[])
 {
-    if (argc != 3)
+    // default file names
+    std::string in_filename{ "input.txt" };
+    std::string out_filename{ "output.txt" };
+
+    // read file names form command line
+    for (int i{ 1 }; i < argc; i += 2)
     {
-        std::cout << "Must have 2 arguments.\n";
-        exit(1);
+        if (!argv[i+1])
+        {
+            std::cerr << "Missing argument." << '\n';
+            return 1;
+        }
+
+        std::string flag{ argv[i] };
+        if (flag == "-i")
+            in_filename = argv[i+1];
+        else if (flag == "-o")
+            out_filename = argv[i+1];
+        else
+        {
+            std::cerr << flag << " is not valid." << '\n';
+            return 1;
+        }
     }
 
-    auto [n, m, x0, v0, k, t0, tN, N] = readFile(argv[1]);
+    auto [n, m, x0, v0, k, t0, tN, N] = readFile(in_filename);
     auto [a, c, w] = coupledOscillators(n, m, x0, v0, k);
     auto [t, x] = constructSolution(a, c, w, t0, tN, N);
-    writeFile(argv[2], t, x);
+    writeFile(out_filename, t, x);
 
     return 0;
 }

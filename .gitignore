@@ -1,7 +1,4 @@
-.vscode
 .DS_Store
-lib/
-misc/
-*.out
+build/
+lib/Eigen
 *animation.mp4
-
