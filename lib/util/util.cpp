@@ -1,19 +1,19 @@
 #include "util.h"
 #include <sstream>
+#include <vector>
 
-Eigen::ArrayXd strToArr(const std::string& str, int n)
+Array strToArr(const std::string& str)
 {
-    Eigen::ArrayXd arr(n);
+    std::vector<double> values;
     std::stringstream ss{ str };
 
     double val{};
     char sep{};
-
-    for (int i{ 0 }; i < n; ++i)
+    while (ss >> val)
     {
-        ss >> val >> sep;
-        arr(i) = val;
+        values.push_back(val);
+        ss >> sep;
     }
 
-    return arr;
+    return Eigen::Map<Array>(values.data(), values.size());
 }

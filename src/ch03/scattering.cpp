@@ -20,6 +20,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
+#include "util/util.h"
+
 using Array = Eigen::ArrayXd;
 using Vector = Eigen::VectorXd;
 using CArray = Eigen::ArrayXcd;
@@ -31,64 +33,32 @@ typedef Eigen::Triplet<Complex> Triplet;
 
 constexpr Complex I(0.0, 1.0);
 
-Array strToArr(std::string& str, int n)
+// EDIT THE NAMESPACE FOR PIECEWISE FUNCTION GENERATION -g
+namespace UserDef
 {
-    Array vec(n);
-    std::stringstream ss{ str };
+    int N{ 10 };
+    double amin{ -8.0 };
+    double amax{ 8.0 };
 
-    double val {};
-    char comma {};
-
-    for (int i{ 0 }; i < n; ++i)
+    Array userFunc(const Array& x)
     {
-        ss >> val >> comma;
-        vec[i] = val;
+        constexpr double a{ 2.0 };
+        constexpr double v0{ 3.0 };
+        return v0 * (x.square() / (-2.0 * a * a)).exp();
     }
-
-    return vec;
 }
+// END OF EDIT
 
-std::tuple<int, Array, Array, double, double, double, int> readFile
-    (char* file_name)
+namespace Ex3_9
 {
-    std::ifstream input{ file_name };
-    std::string line {};
-
-    std::getline(input, line);
-    int N{ std::stoi(line) };
-    
-    std::getline(input, line);
-    Array v{ strToArr(line, N) };
-
-    std::getline(input, line);
-    Array a{ strToArr(line, N+1) };
-    
-    std::getline(input, line);
-    double k{ std::stod(line) };
-
-    std::getline(input, line);
-    double xmin{ std::stod(line) };
-
-    std::getline(input, line);
-    double xmax{ std::stod(line) };
-
-    std::getline(input, line);
-    int M{ std::stoi(line) };
-
-    return {N, v, a, k, xmin, xmax, M};
+    Array gaussian(const Array& x, double a, double v0)
+    {
+        return v0 * (x.square() / (-2.0 * a * a)).exp();
+    }
 }
 
-void writeFile(char* file_name, Vector& x, CVector& psi, Vector& prob)
-{
-    Eigen::MatrixXd sol(x.size(), 4);
-    sol << x, psi.real(), psi.imag(), prob;
-
-    Eigen::IOFormat fmt(12, 0, "\t", "\n");
-    std::ofstream output{ file_name };
-    output << sol.format(fmt);
-}
-
-std::tuple<CArray, CVector> scattering(int N, Array& v, Array& a, double k)
+std::tuple<CArray, CVector> scattering(
+    int N, const Array& v, const Array& a, double k)
 {
     // compute entries of the matrix
     CArray n{ (CArray::Ones(N) - v).sqrt() };
@@ -105,9 +75,9 @@ std::tuple<CArray, CVector> scattering(int N, Array& v, Array& a, double k)
     CArray inkeinka11{ ink * einka11 };
     CArray inkeinka11m{ ink * einka11m };
 
-    Complex eika0{ std::exp(ik * a[0]) };
-    Complex eika0m{ std::exp(-1.0 * ik * a[0]) };
-    Complex eikaN{ std::exp(ik * a[N]) };
+    Complex eika0{ std::exp(ik * a(0)) };
+    Complex eika0m{ std::exp(-1.0 * ik * a(0)) };
+    Complex eikaN{ std::exp(ik * a(N)) };
 
     Complex ikeika0{ ik * eika0 };
     Complex ikeika0m{ ik * eika0m };
@@ -125,15 +95,15 @@ std::tuple<CArray, CVector> scattering(int N, Array& v, Array& a, double k)
 
     for (int i{ 0 }; i < N; ++i)
     {
-        entries.push_back(Triplet(i, 2*i+1, -einka01[i]));
-        entries.push_back(Triplet(i, 2*i+2, -einka01m[i]));
-        entries.push_back(Triplet(i+1, 2*i+1, einka11[i]));
-        entries.push_back(Triplet(i+1, 2*i+2, einka11m[i]));
+        entries.push_back(Triplet(i, 2*i+1, -einka01(i)));
+        entries.push_back(Triplet(i, 2*i+2, -einka01m(i)));
+        entries.push_back(Triplet(i+1, 2*i+1, einka11(i)));
+        entries.push_back(Triplet(i+1, 2*i+2, einka11m(i)));
 
-        entries.push_back(Triplet(i+N+1, 2*i+1, -inkeinka01[i]));
-        entries.push_back(Triplet(i+N+1, 2*i+2, inkeinka01m[i]));
-        entries.push_back(Triplet(i+N+2, 2*i+1, inkeinka11[i]));
-        entries.push_back(Triplet(i+N+2, 2*i+2, -inkeinka11m[i]));
+        entries.push_back(Triplet(i+N+1, 2*i+1, -inkeinka01(i)));
+        entries.push_back(Triplet(i+N+1, 2*i+2, inkeinka01m(i)));
+        entries.push_back(Triplet(i+N+2, 2*i+1, inkeinka11(i)));
+        entries.push_back(Triplet(i+N+2, 2*i+2, -inkeinka11m(i)));
     }
 
     Eigen::SparseMatrix<Complex> A(2*N+2, 2*N+2);
@@ -141,19 +111,19 @@ std::tuple<CArray, CVector> scattering(int N, Array& v, Array& a, double k)
 
     // construct rhs
     CVector b{ CVector::Zero(2*N+2) };
-    b[0] = -eika0;
-    b[N+1] = -ikeika0;
+    b(0) = -eika0;
+    b(N+1) = -ikeika0;
 
     // solve system
     Eigen::SparseLU<Eigen::SparseMatrix<Complex>> linsolve;
     linsolve.compute(A);
-    CVector x { linsolve.solve(b) };
+    CVector x{ linsolve.solve(b) };
 
     return {n, x};
 }
 
 std::tuple<Vector, CVector> constructSolution(
-    CArray& n, CVector& coef, Array& a,
+    const CArray& n, const CVector& coef, const Array& a,
     double k, double xmin, double xmax, int M)
 {
     Vector x{ Vector::LinSpaced(M, xmin, xmax) };
@@ -161,39 +131,39 @@ std::tuple<Vector, CVector> constructSolution(
 
     // first region
     int i{ 0 };
-    for (; x[i] < a[0]; ++i)
+    for (; x(i) < a(0); ++i)
     {
-        psi[i] = std::exp(I * k * x[i]) + coef[0] * std::exp(-I * k * x[i]);
+        psi(i) = std::exp(I * k * x(i)) + coef(0) * std::exp(-I * k * x(i));
     }
 
     // regions in between
     for (int j{ 1 }; j < a.size(); ++j)
     {
-        for (; x[i] < a[j]; ++i)
+        for (; x(i) < a(j); ++i)
         {
-            psi[i] = coef[2*j-1] * std::exp(I * k * n[j-1] * x[i])
-                + coef[2*j] * std::exp(-I * k * n[j-1] * x[i]);
+            psi(i) = coef(2*j-1) * std::exp(I * k * n(j-1) * x(i))
+                + coef(2*j) * std::exp(-I * k * n(j-1) * x(i));
         }
     }
 
     // final region
     for (; i < M; ++i)
     {
-        psi[i] = coef.tail(1)[0] * std::exp(I * k * x[i]);
+        psi(i) = coef.tail(1)(0) * std::exp(I * k * x(i));
     }
 
     return {x, psi};
 }
 
 std::tuple<Vector, double, double> computeMisc(
-    CVector& psi, CVector& coef, bool show)
+    const CVector& psi, const CVector& coef, bool show)
 {
     // probability density
     Vector prob{ psi.cwiseAbs2() };
 
     // reflection/transmission coefficients
-    double refl{ std::norm(coef[0]) };
-    double tran{ std::norm(coef.tail(1)[0]) };
+    double refl{ std::norm(coef(0)) };
+    double tran{ std::norm(coef.tail(1)(0)) };
 
     if (show)
     {
@@ -205,7 +175,7 @@ std::tuple<Vector, double, double> computeMisc(
 }
 
 // converts a function to piecewise step function input file
-void funcToStep(const std::string& file_name, std::function<Array(Array)> func,
+void funcToStep(const std::string& outfile, std::function<Array(Array)> func,
     int N, double amin, double amax)
 {
     Array a{ Array::LinSpaced(N+1, amin, amax) };
@@ -213,37 +183,88 @@ void funcToStep(const std::string& file_name, std::function<Array(Array)> func,
 
     // write to file
     Eigen::IOFormat fmt(12, Eigen::DontAlignCols, " ", ",");
-    std::ofstream output{ file_name };
+    std::ofstream output{ outfile };
     output << N << '\n' << v.format(fmt) << '\n' << a.format(fmt);
 }
 
 // Exercise 3.9
-void exercise3_9()
+void exercise3_9(const std::string& outfile, double a, double v0, double k)
 {
-
-}
-
-int main(int argc, char* argv[])
-{
-    if (argc != 3)
+    int tot{ 14 };
+    Vector nvec(tot);
+    Vector tran(tot);
+    for (int i{ 0 }; i < tot; ++i)
     {
-        std::cout << "Must have 2 arguments.\n";
-        exit(1);
+        int N{ static_cast<int>(pow(2, i+1)) };
+        nvec(i) = static_cast<double>(i+1);
+
+        Array ai{ Array::LinSpaced(N+1, -4.0*a, 4.0*a) };
+        Array vi{ Ex3_9::gaussian(ai.head(N), a, v0) };
+
+        auto [n, coef] = scattering(N, vi, ai, k);
+        tran(i) = std::norm(coef.tail(1)(0));
     }
 
-    auto [N, v, a, k, xmin, xmax, M] = readFile(argv[1]);
-    auto [n, coef] = scattering(N, v, a, k);
-    auto [x, psi] = constructSolution(n, coef, a, k, xmin, xmax, M);
-    auto [prob, refl, tran] = computeMisc(psi, coef, true);
-    writeFile(argv[2], x, psi, prob);
+    writeFile(outfile, 12, nvec, tran);
+}
 
-    // Exercise 3.9: Gaussiaan function
-    auto gaussian = [a{ 2.0 }, v0{ 1.0 }](Array x)
+int main(int argc, const char* argv[])
+{
+    // default file names
+    std::string infile{ "input.txt" };
+    std::string outfile{ "output.txt" };
+    std::string opflag{ "compute" };
+
+    // read file names from command line
+    for (int i{ 1 }; i < argc; i += 2)
     {
-        return v0 * (x.square() / (-2.0 * pow(a, 2))).exp();
-    };
+        if (!argv[i+1])
+        {
+            std::cerr << "Missing argument." << '\n';
+            return 1;
+        }
 
-    funcToStep("test/input3.txt", gaussian, 10, -5.0, 5.0);
+        std::string fileflag{ argv[i] };
+        if (fileflag == "-i")
+            infile = argv[i+1];
+        else if (fileflag == "-o")
+            outfile = argv[i+1];
+        else if (fileflag == "-g")
+        {
+            outfile = argv[i+1];
+            opflag = "generate";
+        }
+        else if (fileflag == "-3.9")
+        {
+            outfile = argv[i+1];
+            opflag = "3.9";
+        }
+        else
+        {
+            std::cerr << fileflag << " is not valid." << '\n';
+            return 1;
+        }
+    }
+
+    // operation to perform
+    if (opflag == "compute")
+    {
+        auto [N, v, a, k, xmin, xmax, M] = readFile
+            <int, Array, Array, double, double, double, int>(infile);
+        auto [n, coef] = scattering(N, v, a, k);
+        auto [x, psi] = constructSolution(n, coef, a, k, xmin, xmax, M);
+        auto [prob, refl, tran] = computeMisc(psi, coef, true);
+        writeFile(outfile, 12, x, psi.real(), psi.imag(), prob);
+    }
+    else if (opflag == "generate")
+    {
+        funcToStep(outfile,
+            UserDef::userFunc, UserDef::N, UserDef::amin, UserDef::amax);
+    }
+    else
+    {
+        exercise3_9(outfile, 0.5, 100.0, 0.1);
+    }
 
     return 0;
 }

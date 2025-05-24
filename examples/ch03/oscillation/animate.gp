@@ -11,7 +11,11 @@ sizes = "12 36 24 12 24"
 N = 300
 do for [i=0:N] {
     plot \
-        0 \
+        'output.txt' \
+        every ::i::i \
+        using ($2 + word(loc, 1)):(0):($6 + word(loc, 5)):(0) \
+        with vectors \
+        nohead \
         linewidth 8 \
         linecolor "black" \
         notitle, \

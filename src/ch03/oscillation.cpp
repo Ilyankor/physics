@@ -4,9 +4,9 @@
 
 // input file
 // n            (number of masses)
-// m1, m2, ...  (masses)
-// x0, ...      (initial displacements)
-// v0, ...      (initial velocities)
+// m1, m2, ...  (n masses)
+// x0, ...      (n initial displacements)
+// v0, ...      (n initial velocities)
 // k1, k2, ...  (n-1 spring constants)
 // t0           (initial time)
 // tN           (final time)
@@ -30,49 +30,6 @@ using CArray = Eigen::ArrayXcd;
 
 constexpr std::complex<double> I(0.0, 1.0);
 constexpr double sqrtzerotol{ 1e-7 };
-
-std::tuple<int, Array, Vector, Vector, Array, double, double, int> readFile(
-    std::string_view file_name)
-{
-    std::ifstream input{ file_name };
-    std::string line{};
-
-    std::getline(input, line);
-    int n{ std::stoi(line) };
-    
-    std::getline(input, line);
-    Array m{ strToArr(line, n) };
-
-    std::getline(input, line);
-    Vector x0{ strToArr(line, n) };
-
-    std::getline(input, line);
-    Vector v0{ strToArr(line, n) };
-
-    std::getline(input, line);
-    Array k{ strToArr(line, n-1) };
-    
-    std::getline(input, line);
-    double t0{ std::stod(line) };
-
-    std::getline(input, line);
-    double tN{ std::stod(line) };
-
-    std::getline(input, line);
-    int N{ std::stoi(line) };
-    
-    return {n, m, x0, v0, k, t0, tN, N};
-}
-
-void writeFile(std::string_view file_name, const Vector& t, const Matrix& x)
-{
-    Matrix merged(x.rows(), x.cols() + 1);
-    merged << t, x;
-
-    Eigen::IOFormat fmt(12, 0, "\t", "\n");
-    std::ofstream output{ file_name };
-    output << merged.format(fmt);
-}
 
 std::tuple<Matrix, CArray, Array> coupledOscillators(
     int n, const Array& m, const Vector& x0, const Vector& v0, const Array& k)
@@ -148,13 +105,13 @@ std::tuple<Vector, Matrix> constructSolution(
     return {t, x};
 }
 
-int main(int argc, char* argv[])
+int main(int argc, const char* argv[])
 {
     // default file names
-    std::string in_filename{ "input.txt" };
-    std::string out_filename{ "output.txt" };
+    std::string infile{ "input.txt" };
+    std::string outfile{ "output.txt" };
 
-    // read file names form command line
+    // read file names from command line
     for (int i{ 1 }; i < argc; i += 2)
     {
         if (!argv[i+1])
@@ -165,9 +122,9 @@ int main(int argc, char* argv[])
 
         std::string flag{ argv[i] };
         if (flag == "-i")
-            in_filename = argv[i+1];
+            infile = argv[i+1];
         else if (flag == "-o")
-            out_filename = argv[i+1];
+            outfile = argv[i+1];
         else
         {
             std::cerr << flag << " is not valid." << '\n';
@@ -175,10 +132,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    auto [n, m, x0, v0, k, t0, tN, N] = readFile(in_filename);
+    auto [n, m, x0, v0, k, t0, tN, N] = readFile
+        <int, Array, Vector, Vector, Array, double, double, int>(infile);
     auto [a, c, w] = coupledOscillators(n, m, x0, v0, k);
     auto [t, x] = constructSolution(a, c, w, t0, tN, N);
-    writeFile(out_filename, t, x);
+    writeFile(outfile, 12, t, x);
 
     return 0;
 }

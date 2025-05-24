@@ -7,7 +7,7 @@
 1001
 
 #####
-Input for Section 3.5, Exercise 3.6
+Section 3.5, Exercise 3.6
 v = 0.5
 a = 5.0
 k = 0.2

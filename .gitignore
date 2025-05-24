@@ -1,4 +1,7 @@
 .DS_Store
+.vscode
+
 build/
 lib/Eigen
+
 *animation.mp4
