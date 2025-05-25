@@ -4,8 +4,8 @@
 #include <string>
 #include <Eigen/Core>
 
+using Array = Eigen::ArrayXd;
 using Vector = Eigen::VectorXd;
-using Array  = Eigen::ArrayXd;
 
 // convert string to Eigen::ArrayXd
 Array strToArr(const std::string& str);

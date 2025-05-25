@@ -20,7 +20,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-#include "util/util.h"
+#include "futil/futil.h"
 
 using Array = Eigen::ArrayXd;
 using Vector = Eigen::VectorXd;

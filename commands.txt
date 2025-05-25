@@ -10,6 +10,7 @@ mkdir build
 cd build
 cmake ..
 cmake --build .
+cd ../
 
 CHAPTER 3: COUPLED OSCILLATORS
 # CREATING OUTPUT
@@ -20,10 +21,12 @@ cd examples/ch03/oscillation
 gnuplot animate.gp | ffmpeg -framerate 60 -f png_pipe -i pipe: -s:v 3840x2160 -c:v libx264 -pix_fmt yuv420p animation.mp4
 
 CHAPTER 3: SCATTERING
+# EXAMPLES
 ./build/bin/ch03/scattering -i examples/ch03/scattering/input1.txt -o examples/ch03/scattering/output1.txt
 ./build/bin/ch03/scattering -i examples/ch03/scattering/input2.txt -o examples/ch03/scattering/output2.txt
 ./build/bin/ch03/scattering -g examples/ch03/scattering/input3.txt
 ./build/bin/ch03/scattering -3.9 examples/ch03/scattering/output4.txt
 
+# PLOTTING
 cd examples/ch03/oscillation
 gnuplot plot.gp
