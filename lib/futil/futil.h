@@ -56,7 +56,7 @@ inline std::tuple<Ts...> readFile(const std::string& infile)
 
 // write data to file
 template <typename... Ts>
-inline void writeFile(std::string_view outfile, int precision, const Ts&... args)
+inline void writeFile(const std::string& outfile, int precision, const Ts&... args)
 {
     const int numrows = std::get<0>(std::make_tuple(args.rows() ...));
     const int totcols = (args.cols() + ...);
